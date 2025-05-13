@@ -1,6 +1,6 @@
 <?php
 
-namespace Webrtc\tests;
+namespace Tests\Webrtc\DataChannel;
 
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\UsesClass;
@@ -11,7 +11,6 @@ use Webrtc\DataChannel\RTCDataChannel;
 use Webrtc\DataChannel\RTCDataChannelParameters;
 use Webrtc\Exception\InvalidArgumentException;
 use Webrtc\Exception\RuntimeException;
-use Webrtc\SCTP\RTCSctpTransport;
 
 #[UsesClass(RTCDataChannelParameters::class)]
 #[CoversClass(RTCDataChannel::class)]

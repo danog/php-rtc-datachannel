@@ -1,7 +1,7 @@
 # WebRTC Data Channel Implementation
 
 [![PHP Version](https://img.shields.io/badge/php-8.4%2B-blue.svg)](https://php.net/)
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![License](https://img.shields.io/badge/license-BSD-blue.svg)](LICENSE)
 
 A PHP implementation of WebRTC's RTCDataChannel interface for bidirectional peer-to-peer data communication.
 

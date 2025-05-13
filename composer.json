@@ -25,7 +25,6 @@
   "require": {
     "php": "^8.4",
     "quasarstream/exception": "^1.0",
-    "quasarstream/sctp": "^1.0",
     "psr/log": "^3.0"
   },
   "require-dev": {

@@ -16,7 +16,6 @@ use Psr\Log\LoggerInterface;
 use Webrtc\DataChannel\Enum\State;
 use Webrtc\Exception\InvalidArgumentException;
 use Webrtc\Exception\RuntimeException;
-use Webrtc\SCTP\RTCSctpTransport;
 
 /**
  * Represents a bidirectional peer-to-peer data channel for WebRTC communications.
@@ -42,7 +41,7 @@ class RTCDataChannel extends EventEmitter implements RTCDataChannelInterface
     private ?int $id;
     private RTCDataChannelParameters $parameters;
     private State $readyState = State::Connecting;
-    private RTCSctpTransport $transport;
+    private RTCSctpTransportInterface $transport;
     private bool $sendOpen;
     private ?LoggerInterface $logger = null;
 
@@ -53,13 +52,13 @@ class RTCDataChannel extends EventEmitter implements RTCDataChannelInterface
      * - For in-band: Automatically initiates the opening procedure
      * - For out-of-band: Verifies ID validity and registers with transport
      *
-     * @param RTCSctpTransport $transport The SCTP transport layer for data transmission
+     * @param RTCSctpTransportInterface $transport The SCTP transport layer for data transmission
      * @param RTCDataChannelParameters $parameters Configuration parameters for the channel
      * @param bool $sendOpen Whether to immediately send open request (for in-band)
      * @throws InvalidArgumentException If negotiated channel has invalid ID
      */
     public function __construct(
-        RTCSctpTransport         $transport,
+        RTCSctpTransportInterface         $transport,
         RTCDataChannelParameters $parameters,
         bool                     $sendOpen = true
     )
@@ -234,9 +233,9 @@ class RTCDataChannel extends EventEmitter implements RTCDataChannelInterface
     /**
      * Gets the underlying SCTP transport.
      *
-     * @return RTCSctpTransport The transport instance
+     * @return RTCSctpTransportInterface The transport instance
      */
-    public function getTransport(): RTCSctpTransport
+    public function getTransport(): RTCSctpTransportInterface
     {
         return $this->transport;
     }

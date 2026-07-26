@@ -1,7 +1,7 @@
 {
-    "name": "quasarstream/datachannel",
+    "name": "danog/php-rtc-datachannel",
     "type": "library",
-    "description": "A PHP implementation of WebRTC's RTCDataChannel interface for bidirectional peer-to-peer data communication.",
+    "description": "A PHP implementation of WebRTC's RTCDataChannel interface for bidirectional peer-to-peer data communication. Fork with FFI made optional and a pure-PHP DTLS/SRTP stack, maintained for MadelineProto.",
     "keywords": [
         "webrtc",
         "datachannel"
@@ -42,5 +42,8 @@
             "Tests\\Webrtc\\DataChannel\\": "tests"
         }
     },
-    "minimum-stability": "dev"
+    "minimum-stability": "dev",
+    "replace": {
+        "quasarstream/datachannel": "self.version"
+    }
 }

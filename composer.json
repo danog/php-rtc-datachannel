@@ -24,7 +24,7 @@
     ],
     "require": {
         "php": "^8.2",
-        "quasarstream/exception": "^1.0",
+        "danog/php-rtc-exception": "^1.0",
         "evenement/evenement": "^3.0",
         "psr/log": "^3.0"
     },
@@ -42,8 +42,5 @@
             "Tests\\Webrtc\\DataChannel\\": "tests"
         }
     },
-    "minimum-stability": "dev",
-    "replace": {
-        "quasarstream/datachannel": "self.version"
-    }
+    "minimum-stability": "dev"
 }

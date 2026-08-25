@@ -1,7 +1,7 @@
 {
     "name": "danog/php-rtc-datachannel",
     "type": "library",
-    "description": "A PHP implementation of WebRTC's RTCDataChannel interface for bidirectional peer-to-peer data communication. Fork with FFI made optional and a pure-PHP DTLS/SRTP stack, maintained for MadelineProto.",
+    "description": "A PHP implementation of WebRTC's RTCDataChannel interface. MadelineProto's PHP 8.2+ fork is a Composer-compatible component of the modular danog/php-rtc stack.",
     "keywords": [
         "webrtc",
         "datachannel"

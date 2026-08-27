@@ -23,7 +23,7 @@ class RTCDataChannelTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->transport = $this->createMock(RTCSctpTransport::class);
+        $this->transport = $this->createStub(RTCSctpTransport::class);
         $this->parameters = new RTCDataChannelParameters(
             label: "testChannel",
             ordered: true,
@@ -32,7 +32,7 @@ class RTCDataChannelTest extends TestCase
             id: 1
         );
 
-        $this->logger = $this->createMock(LoggerInterface::class);
+        $this->logger = $this->createStub(LoggerInterface::class);
         $this->dataChannel = new RTCDataChannel($this->transport, $this->parameters, true);
         $this->dataChannel->setLogger($this->logger);
     }
@@ -97,11 +97,14 @@ class RTCDataChannelTest extends TestCase
 
     public function testCloseCallsTransportMethod(): void
     {
-        $this->transport->expects($this->once())
-            ->method('dataChannelClose')
-            ->with($this->dataChannel);
+        $transport = $this->createMock(RTCSctpTransport::class);
+        $dataChannel = new RTCDataChannel($transport, $this->parameters, true);
 
-        $this->dataChannel->close();
+        $transport->expects($this->once())
+            ->method('dataChannelClose')
+            ->with($dataChannel);
+
+        $dataChannel->close();
     }
 
     public function testSendThrowsExceptionIfNotOpen(): void
@@ -132,7 +135,9 @@ class RTCDataChannelTest extends TestCase
             $this->assertTrue(true);
         });
 
-        $this->logger->expects($this->once())->method('debug');
+        $logger = $this->createMock(LoggerInterface::class);
+        $logger->expects($this->once())->method('debug');
+        $this->dataChannel->setLogger($logger);
 
         $this->dataChannel->setReadyState(State::Open);
         $this->assertSame(State::Open, $this->dataChannel->getReadyState());

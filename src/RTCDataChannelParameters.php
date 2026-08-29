@@ -11,7 +11,7 @@
 
 namespace Webrtc\DataChannel;
 
-class RTCDataChannelParameters
+final class RTCDataChannelParameters
 {
     /**
      * Create a new RTCDataChannelParameters instance.

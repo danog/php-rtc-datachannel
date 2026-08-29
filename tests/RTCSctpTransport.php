@@ -32,4 +32,9 @@ class RTCSctpTransport implements RTCSctpTransportInterface
     {
         // TODO: Implement dataChannelClose() method.
     }
+
+    public function dataChannelSend(RTCDataChannel $channel, string $data): void
+    {
+        // TODO: Implement dataChannelSend() method.
+    }
 }

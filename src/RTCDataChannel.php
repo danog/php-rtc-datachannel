@@ -32,9 +32,8 @@ use Webrtc\Exception\RuntimeException;
  * - "bufferedamountlow": Emitted when buffered data falls below the threshold
  *
  * @package Webrtc\DataChannel
- * @implements RTCDataChannelInterface
  */
-class RTCDataChannel extends EventEmitter implements RTCDataChannelInterface
+final class RTCDataChannel extends EventEmitter implements RTCDataChannelInterface
 {
     private int $bufferedAmount = 0;
     private int $bufferedAmountLowThreshold = 0;

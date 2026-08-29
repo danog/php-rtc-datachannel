@@ -19,6 +19,8 @@ interface RTCSctpTransportInterface
 
     public function dataChannelClose(RTCDataChannel $channel): void;
 
+    public function dataChannelSend(RTCDataChannel $channel, string $data): void;
+
     public function onReceived(string $data): void;
 
     public function onErrorOrClosed(): void;

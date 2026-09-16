@@ -11,11 +11,15 @@
 
 namespace Webrtc\DataChannel;
 
-use Evenement\EventEmitter;
 use Psr\Log\LoggerInterface;
 use Webrtc\DataChannel\Enum\State;
+use Webrtc\DataChannel\Listener\DataChannelBufferedAmountLowListener;
+use Webrtc\DataChannel\Listener\DataChannelCloseListener;
+use Webrtc\DataChannel\Listener\DataChannelMessageListener;
+use Webrtc\DataChannel\Listener\DataChannelOpenListener;
 use Webrtc\Exception\InvalidArgumentException;
 use Webrtc\Exception\RuntimeException;
+use Webrtc\Mixin\SerializableState;
 
 /**
  * Represents a bidirectional peer-to-peer data channel for WebRTC communications.
@@ -23,17 +27,18 @@ use Webrtc\Exception\RuntimeException;
  * The RTCDataChannel interface enables direct communication between peers with:
  * - Configurable reliability (ordered/unordered, retransmission policies)
  * - Flow control via buffered amounted monitoring
- * - Event-driven interface for state changes
+ * - Typed-listener interface for state changes
  * - Support for both in-band and out-of-band negotiation
  *
- * Events:
- * - "open": Emitted when the data channel transitions to the open state
- * - "close": Emitted when the data channel transitions to the closed state
- * - "bufferedamountlow": Emitted when buffered data falls below the threshold
+ * Listeners (typed replacements for the former Evenement events):
+ * - {@see DataChannelOpenListener}: notified when the channel transitions to the open state
+ * - {@see DataChannelCloseListener}: notified when the channel transitions to the closed state
+ * - {@see DataChannelMessageListener}: receives application data delivered by the SCTP transport
+ * - {@see DataChannelBufferedAmountLowListener}: notified when buffered data falls below the threshold
  *
  * @package Webrtc\DataChannel
  */
-final class RTCDataChannel extends EventEmitter implements RTCDataChannelInterface
+final class RTCDataChannel implements RTCDataChannelInterface
 {
     private int $bufferedAmount = 0;
     private int $bufferedAmountLowThreshold = 0;
@@ -43,6 +48,18 @@ final class RTCDataChannel extends EventEmitter implements RTCDataChannelInterfa
     private RTCSctpTransportInterface $transport;
     private bool $sendOpen;
     private ?LoggerInterface $logger = null;
+
+    /** @var \WeakMap<DataChannelOpenListener, null> Listeners notified when the channel opens. */
+    private \WeakMap $openListeners;
+
+    /** @var \WeakMap<DataChannelCloseListener, null> Listeners notified when the channel closes. */
+    private \WeakMap $closeListeners;
+
+    /** @var \WeakMap<DataChannelMessageListener, null> Listeners receiving application data. */
+    private \WeakMap $messageListeners;
+
+    /** @var \WeakMap<DataChannelBufferedAmountLowListener, null> Listeners notified when buffered amount drops below the threshold. */
+    private \WeakMap $bufferedAmountLowListeners;
 
     /**
      * Creates a new RTCDataChannel instance.
@@ -62,6 +79,15 @@ final class RTCDataChannel extends EventEmitter implements RTCDataChannelInterfa
         bool                     $sendOpen = true
     )
     {
+        /** @var \WeakMap<DataChannelOpenListener, null> */
+        $this->openListeners = new \WeakMap();
+        /** @var \WeakMap<DataChannelCloseListener, null> */
+        $this->closeListeners = new \WeakMap();
+        /** @var \WeakMap<DataChannelMessageListener, null> */
+        $this->messageListeners = new \WeakMap();
+        /** @var \WeakMap<DataChannelBufferedAmountLowListener, null> */
+        $this->bufferedAmountLowListeners = new \WeakMap();
+
         $this->transport = $transport;
         $this->parameters = $parameters;
         $this->id = $parameters->id;
@@ -79,6 +105,82 @@ final class RTCDataChannel extends EventEmitter implements RTCDataChannelInterfa
             }
         } else {
             $this->transport->dataChannelAddNegotiated($this);
+        }
+    }
+
+    /**
+     * Register a listener notified when the channel transitions to the open state.
+     *
+     * Typed replacement for on('open'); the listener is a plain object captured by serialization.
+     */
+    public function addOpenListener(DataChannelOpenListener $listener): void
+    {
+        $this->openListeners[$listener] = null;
+    }
+
+    /**
+     * Register a listener notified when the channel transitions to the closed state.
+     *
+     * Typed replacement for on('close'); the listener is a plain object captured by serialization.
+     */
+    public function addCloseListener(DataChannelCloseListener $listener): void
+    {
+        $this->closeListeners[$listener] = null;
+    }
+
+    /**
+     * Register a listener receiving application data delivered by the SCTP transport.
+     *
+     * Typed replacement for on('message'); the listener is a plain object captured by serialization.
+     */
+    public function addMessageListener(DataChannelMessageListener $listener): void
+    {
+        $this->messageListeners[$listener] = null;
+    }
+
+    /**
+     * Register a listener notified when the buffered amount falls below the threshold.
+     *
+     * Typed replacement for on('bufferedamountlow'); the listener is a plain object captured by serialization.
+     */
+    public function addBufferedAmountLowListener(DataChannelBufferedAmountLowListener $listener): void
+    {
+        $this->bufferedAmountLowListeners[$listener] = null;
+    }
+
+    /**
+     * Deliver application data into this channel.
+     *
+     * Called by the SCTP transport in place of the former emit("message", [$data]); dispatches to
+     * every registered {@see DataChannelMessageListener}.
+     *
+     * @param string $data The received application data
+     */
+    public function dispatchMessage(string $data): void
+    {
+        foreach ($this->messageListeners as $listener => $_) {
+            $listener->onDataChannelMessage($data);
+        }
+    }
+
+    private function notifyOpen(): void
+    {
+        foreach ($this->openListeners as $listener => $_) {
+            $listener->onDataChannelOpen();
+        }
+    }
+
+    private function notifyClose(): void
+    {
+        foreach ($this->closeListeners as $listener => $_) {
+            $listener->onDataChannelClose();
+        }
+    }
+
+    private function notifyBufferedAmountLow(): void
+    {
+        foreach ($this->bufferedAmountLowListeners as $listener => $_) {
+            $listener->onDataChannelBufferedAmountLow();
         }
     }
 
@@ -284,7 +386,7 @@ final class RTCDataChannel extends EventEmitter implements RTCDataChannelInterfa
         $this->bufferedAmount += $amount;
 
         if ($crossesThreshold) {
-            $this->emit("bufferedamountlow");
+            $this->notifyBufferedAmountLow();
         }
     }
 
@@ -303,9 +405,9 @@ final class RTCDataChannel extends EventEmitter implements RTCDataChannelInterfa
     /**
      * Updates the channel's ready state.
      *
-     * This internal method handles state transitions and emits corresponding events:
-     * - "open" when transitioning to Open state
-     * - "close" when transitioning to Closed state
+     * This internal method handles state transitions and notifies registered listeners:
+     * - {@see DataChannelOpenListener} when transitioning to Open state
+     * - {@see DataChannelCloseListener} when transitioning to Closed state
      *
      * @param State $state The new state to transition to
      */
@@ -316,10 +418,17 @@ final class RTCDataChannel extends EventEmitter implements RTCDataChannelInterfa
             $this->readyState = $state;
 
             if ($state == State::Open) {
-                $this->emit("open");
+                $this->notifyOpen();
             } elseif ($state == State::Closed) {
-                $this->emit("close");
-                $this->removeAllListeners();
+                $this->notifyClose();
+                /** @var \WeakMap<DataChannelOpenListener, null> */
+                $this->openListeners = new \WeakMap();
+                /** @var \WeakMap<DataChannelCloseListener, null> */
+                $this->closeListeners = new \WeakMap();
+                /** @var \WeakMap<DataChannelMessageListener, null> */
+                $this->messageListeners = new \WeakMap();
+                /** @var \WeakMap<DataChannelBufferedAmountLowListener, null> */
+                $this->bufferedAmountLowListeners = new \WeakMap();
             }
         }
     }
@@ -349,5 +458,56 @@ final class RTCDataChannel extends EventEmitter implements RTCDataChannelInterfa
     public function setLogger(LoggerInterface $logger): void
     {
         $this->logger = $logger;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function __serialize(): array
+    {
+        $state = SerializableState::export($this, [
+            // WeakMaps cannot be serialized; snapshot their keys and rebuild on the far side.
+            'openListeners' => ['__uninitialized' => true],
+            'closeListeners' => ['__uninitialized' => true],
+            'messageListeners' => ['__uninitialized' => true],
+            'bufferedAmountLowListeners' => ['__uninitialized' => true],
+        ]);
+        $state['__openListeners'] = SerializableState::weakMapToList($this->openListeners);
+        $state['__closeListeners'] = SerializableState::weakMapToList($this->closeListeners);
+        $state['__messageListeners'] = SerializableState::weakMapToList($this->messageListeners);
+        $state['__bufferedAmountLowListeners'] = SerializableState::weakMapToList($this->bufferedAmountLowListeners);
+
+        return $state;
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     */
+    public function __unserialize(array $data): void
+    {
+        /** @var list<DataChannelOpenListener> $openListeners */
+        $openListeners = $data['__openListeners'] ?? [];
+        /** @var list<DataChannelCloseListener> $closeListeners */
+        $closeListeners = $data['__closeListeners'] ?? [];
+        /** @var list<DataChannelMessageListener> $messageListeners */
+        $messageListeners = $data['__messageListeners'] ?? [];
+        /** @var list<DataChannelBufferedAmountLowListener> $bufferedAmountLowListeners */
+        $bufferedAmountLowListeners = $data['__bufferedAmountLowListeners'] ?? [];
+        unset(
+            $data['__openListeners'],
+            $data['__closeListeners'],
+            $data['__messageListeners'],
+            $data['__bufferedAmountLowListeners'],
+        );
+
+        SerializableState::import($this, $data);
+        /** @var \WeakMap<DataChannelOpenListener, null> */
+        $this->openListeners = SerializableState::listToWeakMap($openListeners);
+        /** @var \WeakMap<DataChannelCloseListener, null> */
+        $this->closeListeners = SerializableState::listToWeakMap($closeListeners);
+        /** @var \WeakMap<DataChannelMessageListener, null> */
+        $this->messageListeners = SerializableState::listToWeakMap($messageListeners);
+        /** @var \WeakMap<DataChannelBufferedAmountLowListener, null> */
+        $this->bufferedAmountLowListeners = SerializableState::listToWeakMap($bufferedAmountLowListeners);
     }
 }

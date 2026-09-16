@@ -7,6 +7,8 @@ use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use Webrtc\DataChannel\Enum\State;
+use Webrtc\DataChannel\Listener\DataChannelBufferedAmountLowListener;
+use Webrtc\DataChannel\Listener\DataChannelOpenListener;
 use Webrtc\DataChannel\RTCDataChannel;
 use Webrtc\DataChannel\RTCDataChannelParameters;
 use Webrtc\Exception\InvalidArgumentException;
@@ -113,27 +115,38 @@ class RTCDataChannelTest extends TestCase
         $this->dataChannel->send("test");
     }
 
-    public function testAddBufferedAmountEmitsEvent(): void
+    public function testAddBufferedAmountNotifiesListener(): void
     {
         $this->dataChannel->setBufferedAmountLowThreshold(10);
         $this->dataChannel->addBufferedAmount(15);
 
-        $eventEmitted = false;
-        $this->dataChannel->on("bufferedamountlow", function () use (&$eventEmitted) {
-            $eventEmitted = true;
-        });
+        $listener = new class implements DataChannelBufferedAmountLowListener {
+            public bool $notified = false;
 
-        $this->dataChannel->addBufferedAmount(-10); // Should emit event
+            public function onDataChannelBufferedAmountLow(): void
+            {
+                $this->notified = true;
+            }
+        };
+        $this->dataChannel->addBufferedAmountLowListener($listener);
 
-        $this->assertTrue($eventEmitted, "The 'bufferedamountlow' event was not emitted.");
+        $this->dataChannel->addBufferedAmount(-10); // Should notify the listener
+
+        $this->assertTrue($listener->notified, "The bufferedamountlow listener was not notified.");
     }
 
 
-    public function testSetReadyStateChangesStateAndEmitsEvent(): void
+    public function testSetReadyStateChangesStateAndNotifiesListener(): void
     {
-        $this->dataChannel->on('open', function () {
-            $this->assertTrue(true);
-        });
+        $listener = new class implements DataChannelOpenListener {
+            public bool $notified = false;
+
+            public function onDataChannelOpen(): void
+            {
+                $this->notified = true;
+            }
+        };
+        $this->dataChannel->addOpenListener($listener);
 
         $logger = $this->createMock(LoggerInterface::class);
         $logger->expects($this->once())->method('debug');
@@ -141,6 +154,7 @@ class RTCDataChannelTest extends TestCase
 
         $this->dataChannel->setReadyState(State::Open);
         $this->assertSame(State::Open, $this->dataChannel->getReadyState());
+        $this->assertTrue($listener->notified, "The open listener was not notified.");
     }
 
 }
